@@ -38,8 +38,8 @@ Wantlist Grouper is not yet published to the Chrome Web Store. Load it manually 
 
 ## Limitations
 
-- **Wantlist cap:** The MVP scans a maximum of 50 wantlist items per run to avoid putting excessive load on Discogs' servers. If your wantlist is longer than 50 items, only the first 50 are scanned.
-- **Scan time:** Each release requires a separate marketplace page fetch with a 1-second delay between requests. A full 50-item scan takes approximately 1 minute.
+- **Wantlist cap:** The extension scans a maximum of 100 wantlist items per run to avoid putting excessive load on Discogs' servers. If your wantlist is longer than 100 items, only the first 100 are scanned.
+- **Scan time:** Each release requires a separate marketplace page fetch with a 1.5-second delay between requests. A full 100-item scan takes approximately 2–3 minutes.
 - **Login required:** The extension works by reading your logged-in Discogs session. You must be signed into Discogs in Chrome for the scan to work.
 - **Only shows sellers with 2+ matches:** Sellers who carry only one item from your wantlist are filtered out. The goal is consolidation, not single-item finds.
 - **Results are cached for 30 minutes.** Clicking "Scan Wantlist" always triggers a fresh scan; opening the popup within 30 minutes of a previous scan will show the cached results immediately.

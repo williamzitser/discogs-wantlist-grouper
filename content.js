@@ -10,8 +10,8 @@ function initDiscogsGrouper() {
   console.log('[DiscogsGrouper] Content script ready on', window.location.href);
 
   const BASE = 'https://www.discogs.com';
-  const DELAY_MS = 1000;
-  const MAX_ITEMS = 50;
+  const DELAY_MS = 1500;
+  const MAX_ITEMS = 100;
   const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
   const CACHE_KEY = 'dg_cache';
 

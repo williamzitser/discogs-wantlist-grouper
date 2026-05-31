@@ -116,7 +116,7 @@ async function startScan() {
   scanning = true;
 
   showState('loading');
-  updateProgress(0, 50, 'Locating Discogs tab…');
+  updateProgress(0, 100, 'Locating Discogs tab…');
   document.getElementById('btn-scan').disabled = true;
 
   try {
