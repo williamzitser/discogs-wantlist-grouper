@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discogs Wantlist Store Grouper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="wordmark">
+        <span class="wordmark-white">Wantlist</span><span class="wordmark-yellow">Grouper</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-clear" class="btn btn-ghost" title="Clear cached results">Clear cache</button>
+        <button id="btn-scan" class="btn btn-primary">Scan Wantlist</button>
+      </div>
+    </header>
+
+    <!-- ── Idle / pre-scan state ─────────────────────────────── -->
+    <div id="state-idle">
+      <p class="scan-intro">Set your filters, then click <strong>Scan Wantlist</strong>.</p>
+
+      <div class="pre-scan-filters">
+
+        <!-- Media Condition -->
+        <div class="filter-section">
+          <div class="filter-section-header">
+            <span class="filter-section-label">Media Condition</span>
+            <button class="filter-toggle-all" data-target="conditions" data-state="none">Select all</button>
+          </div>
+          <div id="condition-checks" class="check-grid"></div>
+        </div>
+
+        <!-- Ships From + Currency -->
+        <div class="filter-row-inline">
+
+          <div class="filter-section filter-section-grow">
+            <div class="filter-section-header">
+              <span class="filter-section-label">Ships From</span>
+              <button class="filter-toggle-all" data-target="countries" data-state="none">Select all</button>
+            </div>
+            <div id="country-checks" class="check-grid check-grid-scroll"></div>
+          </div>
+
+          <div class="filter-section filter-section-currency">
+            <div class="filter-section-header">
+              <span class="filter-section-label">Currency</span>
+            </div>
+            <select id="filter-currency" class="filter-select">
+              <option value="">All</option>
+              <option value="USD" selected>USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="CAD">CAD</option>
+              <option value="AUD">AUD</option>
+              <option value="JPY">JPY</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <p class="hint small">Scans up to 50 wantlist items &middot; ~1 min &middot; requires an open Discogs tab</p>
+    </div>
+
+    <!-- ── Loading state ─────────────────────────────────────── -->
+    <div id="state-loading" class="hidden">
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+        </div>
+        <p id="progress-label" class="progress-label">Starting&hellip;</p>
+      </div>
+      <p class="hint small">Keep this popup open while scanning.</p>
+    </div>
+
+    <!-- ── Error state ────────────────────────────────────────── -->
+    <div id="state-error" class="hidden">
+      <div class="error-box">
+        <div class="error-icon">&#9888;</div>
+        <p id="error-msg" class="error-msg">Something went wrong.</p>
+        <button id="btn-retry" class="btn btn-primary btn-sm">Try Again</button>
+      </div>
+    </div>
+
+    <!-- ── Results state ──────────────────────────────────────── -->
+    <div id="state-results" class="hidden">
+      <div class="results-topbar">
+        <p id="stats-bar" class="stats-bar"></p>
+        <button id="btn-back" class="btn btn-ghost btn-sm">&#8592; Filters</button>
+      </div>
+      <div id="sellers-container"></div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

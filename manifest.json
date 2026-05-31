@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Discogs Wantlist Store Grouper",
+  "version": "1.0.0",
+  "description": "Find which marketplace sellers carry the most records from your Discogs wantlist.",
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": ["https://www.discogs.com/*"],
+  "icons": {
+    "16":  "icon16.png",
+    "48":  "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Discogs Wantlist Store Grouper",
+    "default_icon": {
+      "16":  "icon16.png",
+      "48":  "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.discogs.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
