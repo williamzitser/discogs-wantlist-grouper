@@ -406,14 +406,24 @@ function initDiscogsGrouper() {
 
   // ─── Utilities ───────────────────────────────────────────────────────────
 
-  async function getHTML(url) {
+  async function getHTML(url, timeoutMs = 20_000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     console.log('[DiscogsGrouper] GET', url);
-    const res = await fetch(url, {
-      credentials: 'include',
-      headers: { Accept: 'text/html,application/xhtml+xml' },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    return res.text();
+    try {
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: { Accept: 'text/html,application/xhtml+xml' },
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return res.text();
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error(`Request timed out after ${timeoutMs / 1000}s: ${url}`);
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function domParse(html) {

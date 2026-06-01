@@ -137,7 +137,7 @@ async function startScan() {
       }
     }
 
-    const response = await sendTabMessage(tab.id, { action: 'scan', force: true }, 180_000);
+    const response = await sendTabMessage(tab.id, { action: 'scan', force: true }, 600_000);
 
     if (!response?.ok) {
       showError(response?.error || 'Unknown error during scan.');
