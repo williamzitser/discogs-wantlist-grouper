@@ -220,25 +220,25 @@ function initDiscogsGrouper() {
     return max;
   }
 
-  // ─── Marketplace Fetching ────────────────────────────────────────────────
+  // ─── Marketplace Fetching (HTML scraping) ───────────────────────────────
 
   async function fetchMarketplaceListings(releaseId) {
+    const seenSeller = new Set();
     const allListings = [];
-    const seenSeller = new Set(); // shared across pages — one listing per seller per release
     let page = 1;
     let totalPages = 1;
 
     do {
       const url = `${BASE}/sell/release/${releaseId}?sort=price%2Basc&limit=25&page=${page}`;
       const html = await getHTML(url);
-      const doc = domParse(html);
+      const doc  = domParse(html);
 
       const pageListings = parseListings(doc, releaseId, seenSeller);
       allListings.push(...pageListings);
 
       if (page === 1) {
         totalPages = parseTotalPages(doc);
-        console.log(`[DiscogsGrouper]   Release ${releaseId}: ${totalPages} marketplace page(s)`);
+        console.log(`[DiscogsGrouper]   Release ${releaseId}: ${totalPages} page(s)`);
       }
 
       if (page >= totalPages) break;
@@ -246,18 +246,22 @@ function initDiscogsGrouper() {
       await sleep(DELAY_MS);
     } while (true);
 
+    console.log(`[DiscogsGrouper]   Release ${releaseId}: ${allListings.length} unique sellers`);
     return allListings;
   }
 
   function parseListings(doc, releaseId, seenSeller) {
     const listings = [];
-    const seenContainer = new WeakSet(); // prevent double-processing same DOM node
+    const seenContainer = new WeakSet();
 
     function tryExtract(el) {
       if (!el || seenContainer.has(el)) return;
       seenContainer.add(el);
       const l = extractListing(el, releaseId);
       if (l && !seenSeller.has(l.sellerUsername)) {
+        // Condition lookup runs only after a listing is confirmed included.
+        // getConditionText never affects whether a listing is included.
+        l.mediaCondition = getConditionText(el);
         seenSeller.add(l.sellerUsername);
         listings.push(l);
       }
@@ -271,11 +275,11 @@ function initDiscogsGrouper() {
     doc.querySelectorAll('tr.shortcut_navigable').forEach(tryExtract);
     if (listings.length > 0) return listings;
 
-    // Strategy 3: any table body row that contains a seller link and a price
+    // Strategy 3: any table body row containing a seller link and a price
     doc.querySelectorAll('tbody tr').forEach(tryExtract);
     if (listings.length > 0) return listings;
 
-    // Strategy 4: generic containers — walk up from every seller link
+    // Strategy 4: walk up from every seller link to nearest container
     doc.querySelectorAll('a[href*="/seller/"]').forEach(link => {
       const container = link.closest('tr, li, article, [class*="listing"], [class*="Listing"], .mpitem');
       if (container) tryExtract(container);
@@ -293,23 +297,21 @@ function initDiscogsGrouper() {
     const username = m[1];
     if (username === 'help') return null;
 
-    const price = extractPrice(row);
+    const price        = extractPrice(row);
     const priceDisplay = getPriceText(row);
-    const mediaCondition  = getConditionText(row, 'media');
-    const sleeveCondition = getConditionText(row, 'sleeve');
-    const shipsFrom       = getShipsFrom(row);
-    const currency        = detectCurrency(priceDisplay);
-
-    console.log(`[DiscogsGrouper] Listing — seller: "${username}"  media: "${mediaCondition}"  shipsFrom: "${shipsFrom}"  currency: "${currency}"  price: "${priceDisplay}"`);
+    const shipsFrom    = getShipsFrom(row);
+    const currency     = detectCurrency(priceDisplay);
+    const sleeveEl     = row.querySelector('.item_sleeve_condition, [class*="sleeve_condition"]');
+    const sleeveCondition = clean(sleeveEl?.textContent) || '';
 
     return {
       releaseId,
       sellerUsername: username,
-      storeUrl: `${BASE}/seller/${username}`,
-      price: price ?? 0,
+      storeUrl:  `${BASE}/seller/${username}`,
+      price:     price ?? 0,
       priceDisplay,
       currency,
-      mediaCondition,
+      mediaCondition:  '',   // set by getConditionText() in tryExtract after inclusion confirmed
       sleeveCondition,
       shipsFrom,
       listingUrl: row.querySelector('a[href*="/sell/item/"]')?.href
@@ -317,35 +319,25 @@ function initDiscogsGrouper() {
     };
   }
 
-  function getShipsFrom(el) {
-    // Explicit element
-    const loc = el.querySelector(
-      '.seller_location, .ships_from, [class*="ships_from"], [class*="shipsFrom"], [class*="seller_location"]'
-    );
-    if (loc) return clean(loc.textContent.replace(/ships\s+from:?/i, '').replace(/\(.*?\)/g, ''));
+  // Isolated media condition lookup.
+  // Called only after extractListing() has already confirmed a listing is valid.
+  // Accepts the listing row element; returns only the matched grade string or ''
+  // — never throws, never affects whether a listing is included in results.
+  const GRADE_RE = /Near Mint \(NM or M-\)|Very Good Plus \(VG\+\)|Good Plus \(G\+\)|Very Good \(VG\)|Mint \(M\)|Good \(G\)|Fair \(F\)|Poor \(P\)/;
 
-    // Scan for "Ships From:" text node pattern anywhere in the row
-    const m = el.textContent.match(/ships\s+from:?\s*([A-Za-z ,]+?)(?:\n|$)/i);
-    if (m) return m[1].trim();
-
-    return '';
-  }
-
-  function detectCurrency(priceText) {
-    const t = (priceText || '').trim();
-    if (/^CA\$|^C\$/.test(t))          return 'CAD';
-    if (/^AU\$|^A\$/.test(t))          return 'AUD';
-    if (/^JP¥|^¥/.test(t))             return 'JPY';
-    if (t.startsWith('$'))             return 'USD';
-    if (t.startsWith('€'))             return 'EUR';
-    if (t.startsWith('£'))             return 'GBP';
-    return 'USD'; // fallback
+  function getConditionText(el) {
+    try {
+      const span = el.querySelector('p.item_condition > span:not([class])');
+      if (!span) return '';
+      const match = span.textContent.match(GRADE_RE);
+      return match ? match[0] : '';
+    } catch (_) {
+      return '';
+    }
   }
 
   function extractPrice(el) {
-    const priceEl = el.querySelector(
-      '.price, .converted_price, [class*="price"], [class*="Price"]'
-    );
+    const priceEl = el.querySelector('.price, .converted_price, [class*="price"], [class*="Price"]');
     if (!priceEl) return null;
     const m = priceEl.textContent.replace(/[,\s]/g, '').match(/([\d.]+)/);
     return m ? parseFloat(m[1]) : null;
@@ -357,11 +349,24 @@ function initDiscogsGrouper() {
     )?.textContent) || 'N/A';
   }
 
-  function getConditionText(el, type) {
-    const sel = type === 'media'
-      ? '[title^="Media Condition"], .media-condition, [class*="mediaCondition"], [class*="media_condition"], [title*="Media"]'
-      : '[title^="Sleeve Condition"], .sleeve-condition, [class*="sleeveCondition"], [class*="sleeve_condition"], [title*="Sleeve"]';
-    return clean(el.querySelector(sel)?.textContent);
+  function getShipsFrom(el) {
+    const loc = el.querySelector(
+      '.seller_location, .ships_from, [class*="ships_from"], [class*="shipsFrom"], [class*="seller_location"]'
+    );
+    if (loc) return clean(loc.textContent.replace(/ships\s+from:?/i, '').replace(/\(.*?\)/g, ''));
+    const m = el.textContent.match(/ships\s+from:?\s*([A-Za-z ,]+?)(?:\n|$)/i);
+    return m ? m[1].trim() : '';
+  }
+
+  function detectCurrency(priceText) {
+    const t = (priceText || '').trim();
+    if (/^CA\$|^C\$/.test(t)) return 'CAD';
+    if (/^AU\$|^A\$/.test(t)) return 'AUD';
+    if (/^JP¥|^¥/.test(t))   return 'JPY';
+    if (t.startsWith('$'))    return 'USD';
+    if (t.startsWith('€'))    return 'EUR';
+    if (t.startsWith('£'))    return 'GBP';
+    return 'USD';
   }
 
   // ─── Grouping & Ranking ──────────────────────────────────────────────────

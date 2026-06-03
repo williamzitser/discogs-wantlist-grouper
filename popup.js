@@ -142,7 +142,10 @@ async function startScan() {
     if (!response?.ok) {
       showError(response?.error || 'Unknown error during scan.');
     } else {
-      displayResults(response.data, response.fromCache, response.data.scannedAt);
+      // Re-read from the cache that was just written rather than using the
+      // in-memory response object directly — this guarantees the same rendering
+      // path as reopening the popup and eliminates the timing inconsistency.
+      await loadAndDisplayCache();
     }
 
   } catch (err) {
