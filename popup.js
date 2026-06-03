@@ -347,7 +347,7 @@ function buildSellerCard(seller, rank) {
 }
 
 function buildRecordRow(r) {
-  const cond = [r.mediaCondition, r.sleeveCondition].filter(Boolean).join(' / ');
+  const mediaCond = r.mediaCondition || '';
   const meta = [r.priceDisplay || 'N/A', r.shipsFrom].filter(Boolean).join(' · ');
   return `
     <div class="record-row">
@@ -357,7 +357,7 @@ function buildRecordRow(r) {
       </div>
       <div class="record-aside">
         <span class="record-price">${esc(meta)}</span>
-        ${cond ? `<span class="record-cond" title="Condition">${esc(cond)}</span>` : ''}
+        ${mediaCond ? `<span class="record-cond" title="Media Condition">${esc(mediaCond)}</span>` : ''}
       </div>
     </div>
   `;

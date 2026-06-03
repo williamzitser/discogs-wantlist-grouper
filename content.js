@@ -359,8 +359,8 @@ function initDiscogsGrouper() {
 
   function getConditionText(el, type) {
     const sel = type === 'media'
-      ? '.media-condition, [class*="mediaCondition"], [title*="Media"], [class*="media_condition"]'
-      : '.sleeve-condition, [class*="sleeveCondition"], [title*="Sleeve"], [class*="sleeve_condition"]';
+      ? '[title^="Media Condition"], .media-condition, [class*="mediaCondition"], [class*="media_condition"], [title*="Media"]'
+      : '[title^="Sleeve Condition"], .sleeve-condition, [class*="sleeveCondition"], [class*="sleeve_condition"], [title*="Sleeve"]';
     return clean(el.querySelector(sel)?.textContent);
   }
 
