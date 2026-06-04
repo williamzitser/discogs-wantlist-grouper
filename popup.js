@@ -51,8 +51,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (msg.action === 'progress') updateProgress(msg.current, msg.total, msg.title);
   });
 
-  // Show cached results if fresh; they were produced with the same filter
-  // settings the user had at that time, so display as-is.
+  // Open all links in a background tab so the popup stays open.
+  // active:false prevents focus from shifting to the new tab, which is what
+  // causes Chrome to close the popup.
+  document.addEventListener('click', e => {
+    const link = e.target.closest('a[href]');
+    if (!link) return;
+    const url = link.href;
+    if (!url || !url.startsWith('http')) return;
+    e.preventDefault();
+    chrome.tabs.create({ url, active: false });
+  });
+
+  // Restore saved filter state then show any cached results
+  await restoreFilterState();
   await loadAndDisplayCache();
 });
 
@@ -118,6 +130,7 @@ async function startScan() {
   showState('loading');
   updateProgress(0, 100, 'Locating Discogs tab…');
   document.getElementById('btn-scan').disabled = true;
+  await saveFilterState(); // persist selections so they survive popup close/reopen
 
   try {
     const tab = await getDiscogsTab();
@@ -186,13 +199,64 @@ function sendTabMessage(tabId, message, timeout = 10_000) {
   });
 }
 
+// ─── Filter persistence ───────────────────────────────────────────────────────
+
+function saveFilterState() {
+  const checkedConditions = [...document.querySelectorAll('#condition-checks input:checked')].map(b => b.value);
+  const checkedCountries  = [...document.querySelectorAll('#country-checks  input:checked')].map(b => b.value);
+  const currency          = document.getElementById('filter-currency').value;
+  return new Promise(resolve =>
+    chrome.storage.local.set({ dg_filters: { checkedConditions, checkedCountries, currency } }, resolve)
+  );
+}
+
+async function restoreFilterState() {
+  return new Promise(resolve => {
+    chrome.storage.local.get('dg_filters', r => {
+      const f = r.dg_filters;
+      if (!f) return resolve();
+
+      // Restore condition checkboxes
+      document.querySelectorAll('#condition-checks input').forEach(cb => {
+        cb.checked = f.checkedConditions.includes(cb.value);
+      });
+
+      // Restore country checkboxes
+      document.querySelectorAll('#country-checks input').forEach(cb => {
+        cb.checked = f.checkedCountries.includes(cb.value);
+      });
+
+      // Restore currency dropdown
+      const currEl = document.getElementById('filter-currency');
+      if (currEl && f.currency !== undefined) currEl.value = f.currency;
+
+      // Sync toggle-all button labels to match restored state
+      syncToggleAll('conditions', 'condition-checks', 'cond');
+      syncToggleAll('countries',  'country-checks',   'country');
+
+      resolve();
+    });
+  });
+}
+
+// Update a toggle-all button's label to reflect current checkbox state
+function syncToggleAll(groupName, containerId, checkboxName) {
+  const btn = document.querySelector(`.filter-toggle-all[data-target="${groupName}"]`);
+  if (!btn) return;
+  const anyChecked = document.querySelectorAll(`#${containerId} input[name="${checkboxName}"]:checked`).length > 0;
+  btn.textContent   = anyChecked ? 'Deselect all' : 'Select all';
+  btn.dataset.state = anyChecked ? 'all' : 'none';
+}
+
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
 async function loadAndDisplayCache() {
   return new Promise(resolve => {
     chrome.storage.local.get(CACHE_KEY, r => {
       const c = r[CACHE_KEY];
-      if (c && Date.now() - c.ts < CACHE_TTL) displayResults(c.data, true, c.ts);
+      if (c && Date.now() - c.ts < CACHE_TTL) {
+        displayResults(c.data, true, c.ts);
+      }
       resolve();
     });
   });

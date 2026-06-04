@@ -15,6 +15,8 @@ function initDiscogsGrouper() {
   const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
   const CACHE_KEY = 'dg_cache';
 
+  let isScanning = false;
+
   // ─── Message Listener ────────────────────────────────────────────────────
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -26,6 +28,11 @@ function initDiscogsGrouper() {
     }
 
     if (msg.action === 'scan') {
+      if (isScanning) {
+        console.warn('[DiscogsGrouper] Scan already in progress — ignoring duplicate request');
+        sendResponse({ ok: false, error: 'Scan already in progress.' });
+        return false;
+      }
       performScan(sendResponse, msg.force === true);
       return true; // keep channel open for async
     }
@@ -39,6 +46,7 @@ function initDiscogsGrouper() {
   // ─── Orchestration ───────────────────────────────────────────────────────
 
   async function performScan(sendResponse, force = false) {
+    isScanning = true;
     try {
       if (!force) {
         const cached = await loadCache();
@@ -61,6 +69,10 @@ function initDiscogsGrouper() {
 
       const toScan = wantlistItems.slice(0, MAX_ITEMS);
       console.log(`[DiscogsGrouper] Wantlist has ${wantlistItems.length} items; scanning ${toScan.length}`);
+
+      // Reset the total now that we know the real item count, so the counter
+      // always increments forward with a consistent denominator.
+      sendProgress(0, toScan.length, 'Starting scan…');
 
       const allListings = [];
       for (let i = 0; i < toScan.length; i++) {
@@ -97,6 +109,8 @@ function initDiscogsGrouper() {
     } catch (err) {
       console.error('[DiscogsGrouper] Fatal error:', err);
       sendResponse({ ok: false, error: err.message });
+    } finally {
+      isScanning = false;
     }
   }
 
