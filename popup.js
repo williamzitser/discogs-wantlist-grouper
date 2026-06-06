@@ -428,9 +428,9 @@ function buildSellerCard(seller, rank) {
           <span class="badge badge-price">~${totalStr} est. total</span>
         </div>
       </div>
-      <button class="toggle-btn" aria-expanded="false" aria-label="Show records">&#9660;</button>
+      <button class="toggle-btn" aria-expanded="true" aria-label="Hide records">&#9650;</button>
     </div>
-    <div class="record-list" hidden>
+    <div class="record-list">
       ${seller.records.map(buildRecordRow).join('')}
     </div>
   `;
@@ -441,7 +441,7 @@ function buildSellerCard(seller, rank) {
     const open = toggle.getAttribute('aria-expanded') === 'true';
     toggle.setAttribute('aria-expanded', String(!open));
     toggle.innerHTML = open ? '&#9660;' : '&#9650;';
-    list.hidden = open;
+    list.classList.toggle('hidden', open);
   });
 
   return card;
