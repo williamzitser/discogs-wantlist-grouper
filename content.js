@@ -59,6 +59,13 @@ function initDiscogsGrouper() {
         console.log('[DiscogsGrouper] Force-scan requested, bypassing cache');
       }
 
+      // Persist the in-progress flag so a reopened popup can detect it.
+      // dg_scan_progress is also written here first; sendProgress() keeps it updated.
+      chrome.storage.local.set({
+        dg_scanning: true,
+        dg_scan_progress: { current: 0, total: MAX_ITEMS, label: 'Fetching wantlist…' },
+      });
+
       sendProgress(0, MAX_ITEMS, 'Fetching wantlist…');
       const wantlistItems = await fetchAllWantlistItems();
 
@@ -111,6 +118,8 @@ function initDiscogsGrouper() {
       sendResponse({ ok: false, error: err.message });
     } finally {
       isScanning = false;
+      // Clear the persistent flag so a freshly opened popup knows the scan is done.
+      chrome.storage.local.remove(['dg_scanning', 'dg_scan_progress']);
     }
   }
 
@@ -120,6 +129,8 @@ function initDiscogsGrouper() {
     } catch (_) {
       // Popup may have closed; ignore
     }
+    // Also persist to storage so a reopened popup shows the correct progress.
+    chrome.storage.local.set({ dg_scan_progress: { current, total, label: title || '' } });
   }
 
   // ─── Wantlist Fetching ───────────────────────────────────────────────────

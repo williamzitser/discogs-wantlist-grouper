@@ -63,9 +63,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url, active: false });
   });
 
-  // Restore saved filter state then show any cached results
+  // Restore saved filter state.
   await restoreFilterState();
-  await loadAndDisplayCache();
+
+  // If a scan is already running (popup was closed and reopened mid-scan),
+  // show the loading UI and wait for it to finish instead of the start screen.
+  const resuming = await maybeResumeScan();
+  if (!resuming) await loadAndDisplayCache();
 });
 
 // ─── Filter UI setup (runs once on load) ─────────────────────────────────────
@@ -256,10 +260,40 @@ async function loadAndDisplayCache() {
       const c = r[CACHE_KEY];
       if (c && Date.now() - c.ts < CACHE_TTL) {
         displayResults(c.data, true, c.ts);
+        resolve(true);
+      } else {
+        resolve(false);
       }
-      resolve();
     });
   });
+}
+
+// If a scan was running when the popup was closed, restore the loading UI and
+// wait for the content script to signal completion via storage.
+async function maybeResumeScan() {
+  const stored = await new Promise(resolve =>
+    chrome.storage.local.get(['dg_scanning', 'dg_scan_progress'], resolve)
+  );
+  if (!stored.dg_scanning) return false;
+
+  // Show the loading screen with the last-known progress position.
+  showState('loading');
+  const p = stored.dg_scan_progress || {};
+  updateProgress(p.current || 0, p.total || 0, p.label || 'Scanning…');
+
+  // The content script removes dg_scanning from storage when it finishes
+  // (or errors). Listen for that change and update the UI accordingly.
+  const onScanDone = (changes, area) => {
+    if (area !== 'local' || !('dg_scanning' in changes)) return;
+    chrome.storage.onChanged.removeListener(onScanDone);
+    // newValue is undefined when the key is removed (scan finished/failed).
+    loadAndDisplayCache().then(found => {
+      if (!found) showState('idle');
+    });
+  };
+  chrome.storage.onChanged.addListener(onScanDone);
+
+  return true;
 }
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
